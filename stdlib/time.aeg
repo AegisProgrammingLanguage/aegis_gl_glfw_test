@@ -1,0 +1,16 @@
+namespace Time {
+    // Retourne le timestamp actuel en ms
+    func now() {
+        return time_now()
+    }
+    
+    // Helper pour mesurer une durée
+    // Usage: var start = Time.now(); ...; var elapsed = Time.elapsed(start);
+    func elapsed(start_time) {
+        return time_now() - start_time
+    }
+
+    func sleep(ms) { 
+        return time_sleep(ms) 
+    }
+}

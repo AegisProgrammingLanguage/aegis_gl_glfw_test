@@ -1,0 +1,95 @@
+import "packages/glfw_aegis/glfw.aeg"
+import "packages/gl_aegis/gl.aeg"
+import "stdlib/math.aeg" // Pour sin/cos
+
+// --- SHADERS MODIFIÉS ---
+
+var vertexShaderSource = "
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    void main() {
+        // Position fixe pour l'instant
+        gl_Position = vec4(aPos, 1.0);
+    }
+"
+
+var fragmentShaderSource = "
+    #version 330 core
+    out vec4 FragColor;
+    
+    // Variable reçue depuis Aegis (CPU)
+    uniform vec4 uColor;
+    
+    void main() {
+        FragColor = uColor;
+    }
+"
+
+func main() {
+    if (Glfw.init()) {
+        var win = Glfw.createWindow(800, 600, "Aegis OpenGL")
+        Gl.load(Glfw.getProcAddressFunc())
+        
+        // --- 1. Compilation ---
+        var vs = Gl.createShader(Gl.VERTEX_SHADER)
+        Gl.shaderSource(vs, vertexShaderSource)
+        Gl.compileShader(vs)
+
+        var fs = Gl.createShader(Gl.FRAGMENT_SHADER)
+        Gl.shaderSource(fs, fragmentShaderSource)
+        Gl.compileShader(fs)
+
+        var shaderProgram = Gl.createProgram()
+        Gl.attachShader(shaderProgram, vs)
+        Gl.attachShader(shaderProgram, fs)
+        Gl.linkProgram(shaderProgram)
+        Gl.deleteShader(vs)
+        Gl.deleteShader(fs)
+        
+        // --- 2. Buffers ---
+        var vertices = [ -0.5, -0.5, 0.0,  0.5, -0.5, 0.0,  0.0, 0.5, 0.0 ]
+        var vao = Gl.genVertexArrays()
+        var vbo = Gl.genBuffers()
+        Gl.bindVertexArray(vao)
+        Gl.bindBuffer(Gl.ARRAY_BUFFER, vbo)
+        Gl.bufferData(Gl.ARRAY_BUFFER, vertices, Gl.STATIC_DRAW)
+        Gl.vertexAttribPointer(0, 3, Gl.FLOAT, false, 12, 0)
+        Gl.enableVertexAttribArray(0)
+
+        // --- 3. Initialisation Uniforms ---
+        var colorLoc = Gl.getUniformLocation(shaderProgram, "uColor")
+        print "Uniform Location: " + colorLoc
+
+        var time = 0.0
+        var running = true
+
+        while (running) {
+            if (Glfw.shouldClose(win)) { 
+                running = false
+            }
+            
+            // --- 4. Animation ---
+            time += 0.05
+            
+            // Calcul des couleurs (0.0 à 1.0)
+            var r = (Math.sin(time) + 1.0) / 2.0
+            var g = (Math.sin(time + 2.0) + 1.0) / 2.0
+            var b = (Math.sin(time + 4.0) + 1.0) / 2.0
+            
+            Gl.clearColor(0.1, 0.1, 0.1, 1.0)
+            Gl.clear(Gl.COLOR_BUFFER_BIT)
+
+            Gl.useProgram(shaderProgram)
+            
+            Gl.uniform4f(colorLoc, r, g, b, 1.0)
+            
+            Gl.bindVertexArray(vao)
+            Gl.drawArrays(Gl.TRIANGLES, 0, 3)
+
+            Glfw.swapBuffers(win)
+            Glfw.pollEvents()
+        }
+    }
+}
+
+main()
