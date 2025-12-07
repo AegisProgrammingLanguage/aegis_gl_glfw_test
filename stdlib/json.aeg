@@ -1,9 +1,0 @@
-namespace Json {
-    func parse(str) {
-        return json_parse(str)
-    }
-
-    func stringify(obj) {
-        return json_stringify(obj)
-    }
-}
