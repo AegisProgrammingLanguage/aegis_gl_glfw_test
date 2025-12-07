@@ -1,0 +1,25 @@
+namespace Img {
+    func load(path) {
+        var raw = image_load(path)
+
+        if (raw == null) {
+            return null
+        }
+
+        return new Image(raw)
+    }
+
+    class Image(raw_data) {
+        // Accesseurs (Getters)
+        width() { return this.raw_data.get("width") }
+        height() { return this.raw_data.get("height") }
+
+        // Retourne la liste brute des pixels [r, g, b, a, r, g, b, a...]
+        pixels() { return this.raw_data.get("data") }
+
+        // Helper pour le debug
+        info() {
+            print "Image: " + this.width() + "x" + this.height() + " px"
+        }
+    }
+}

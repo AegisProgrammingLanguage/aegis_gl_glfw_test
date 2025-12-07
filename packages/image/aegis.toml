@@ -1,0 +1,8 @@
+[package]
+name = "image_aegis"
+version = "0.1.0"
+
+[targets]
+linux = "libimage_aegis.so"
+windows = "image_aegis.dll"
+macos = "libimage_aegis.dylib"

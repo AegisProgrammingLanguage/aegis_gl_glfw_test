@@ -1,27 +1,32 @@
 import "packages/glfw/glfw.aeg"
 import "packages/gl/gl.aeg"
-import "stdlib/math.aeg"
+import "packages/image/image.aeg"
 
 // --- SHADERS ---
 
-var vertexShaderSource = "
+var vs = "
     #version 330 core
     layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec2 aTexCoord; // UV
+
+    out vec2 TexCoord;
+
     void main() {
-        // Position fixe pour l'instant
         gl_Position = vec4(aPos, 1.0);
+        TexCoord = aTexCoord;
     }
 "
 
-var fragmentShaderSource = "
+var fs = "
     #version 330 core
     out vec4 FragColor;
-    
-    // Variable reçue depuis Aegis (CPU)
-    uniform vec4 uColor;
-    
+    in vec2 TexCoord;
+
+    // L'objet texture (Sampler)
+    uniform sampler2D ourTexture;
+
     void main() {
-        FragColor = uColor;
+        FragColor = texture(ourTexture, TexCoord);
     }
 "
 
@@ -29,62 +34,97 @@ func main() {
     if (Glfw.init()) {
         var win = Glfw.createWindow(800, 600, "Aegis OpenGL")
         Gl.load(Glfw.getProcAddressFunc())
-        
-        // --- 1. Compilation ---
-        var vs = Gl.createShader(Gl.VERTEX_SHADER)
-        Gl.shaderSource(vs, vertexShaderSource)
-        Gl.compileShader(vs)
 
-        var fs = Gl.createShader(Gl.FRAGMENT_SHADER)
-        Gl.shaderSource(fs, fragmentShaderSource)
-        Gl.compileShader(fs)
+        // 1. Chargement de l'image
+        var img = Img.load("assets/logo.png")
+        if (img == null) {
+            print "Erreur: Image introuvable"
+            return 0
+        }
+        print "Image chargée: ${img.width()}x${img.height()}"
 
-        var shaderProgram = Gl.createProgram()
-        Gl.attachShader(shaderProgram, vs)
-        Gl.attachShader(shaderProgram, fs)
-        Gl.linkProgram(shaderProgram)
-        Gl.deleteShader(vs)
-        Gl.deleteShader(fs)
+        // 2. Création de la Texture OpenGL
+        var texID = Gl.genTextures()
+        Gl.bindTexture(Gl.TEXTURE_2D, texID)
         
-        // --- 2. Buffers ---
-        var vertices = [ -0.5, -0.5, 0.0,  0.5, -0.5, 0.0,  0.0, 0.5, 0.0 ]
+        // Options de filtrage (Pixel art ou flou ?)
+        Gl.texParameteri(Gl.TEXTURE_2D, Gl.TEXTURE_MIN_FILTER, Gl.LINEAR)
+        Gl.texParameteri(Gl.TEXTURE_2D, Gl.TEXTURE_MAG_FILTER, Gl.LINEAR)
+
+        // Envoi des pixels
+        Gl.texImage2D(
+            Gl.TEXTURE_2D, 
+            0, 
+            Gl.RGBA, 
+            img.width(), 
+            img.height(), 
+            0, 
+            Gl.RGBA, 
+            Gl.UNSIGNED_BYTE, 
+            img.pixels()
+        )
+        Gl.generateMipmap(Gl.TEXTURE_2D)
+        
+        // 3. Shaders
+        var v = Gl.createShader(Gl.VERTEX_SHADER)
+        Gl.shaderSource(v, vs)
+        Gl.compileShader(v)
+
+        var f = Gl.createShader(Gl.FRAGMENT_SHADER)
+        Gl.shaderSource(f, fs)
+        Gl.compileShader(f)
+
+        var prog = Gl.createProgram()
+        Gl.attachShader(prog, v)
+        Gl.attachShader(prog, f)
+        Gl.linkProgram(prog)
+
+        Gl.deleteShader(v)
+        Gl.deleteShader(f)
+
+        // 4. Carré avec Coordonnées UV (X, Y, Z, U, V)
+        var vertices = [
+             // Positions        // Texture Coords
+             0.5,  0.5, 0.0,     1.0, 0.0,   // Haut Droite -> pointe vers le BAS de l'image
+             0.5, -0.5, 0.0,     1.0, 1.0,   // Bas Droite -> pointe vers le HAUT de l'image
+            -0.5, -0.5, 0.0,     0.0, 1.0,   // Bas Gauche -> pointe vers le HAUT de l'image
+            -0.5,  0.5, 0.0,     0.0, 0.0    // Haut Gauche -> pointe vers le BAS de l'image
+        ]
+        
+        // Indices pour dessiner 2 triangles (un carré)
+        // OpenGL Core préfère souvent EBO (Element Buffer Object) mais on va faire 2 triangles manuels
+        // pour simplifier avec DrawArrays et GL_TRIANGLES, il faut 6 sommets.
+        // Ou utiliser GL_TRIANGLE_FAN pour un carré (4 sommets)
+        
+        // Utilisons TRIANGLE_FAN pour faire simple avec 4 sommets
+        
         var vao = Gl.genVertexArrays()
         var vbo = Gl.genBuffers()
+
         Gl.bindVertexArray(vao)
         Gl.bindBuffer(Gl.ARRAY_BUFFER, vbo)
         Gl.bufferData(Gl.ARRAY_BUFFER, vertices, Gl.STATIC_DRAW)
-        Gl.vertexAttribPointer(0, 3, Gl.FLOAT, false, 12, 0)
+
+        // Attribut 0 : Position (3 floats)
+        // Stride = 5 * float (3 pos + 2 tex) = 20 octets
+        Gl.vertexAttribPointer(0, 3, Gl.FLOAT, false, 20, 0)
         Gl.enableVertexAttribArray(0)
 
-        // --- 3. Initialisation Uniforms ---
-        var colorLoc = Gl.getUniformLocation(shaderProgram, "uColor")
-        print "Uniform Location: " + colorLoc
+        // Attribut 1 : TexCoord (2 floats)
+        // Offset = 3 * float = 12 octets
+        Gl.vertexAttribPointer(1, 2, Gl.FLOAT, false, 20, 12)
+        Gl.enableVertexAttribArray(1)
 
-        var time = 0.0
-        var running = true
-
-        while (running) {
-            if (Glfw.shouldClose(win)) { 
-                running = false
-            }
-            
-            // --- 4. Animation ---
-            time += 0.05
-            
-            // Calcul des couleurs (0.0 à 1.0)
-            var r = (Math.sin(time) + 1.0) / 2.0
-            var g = (Math.sin(time + 2.0) + 1.0) / 2.0
-            var b = (Math.sin(time + 4.0) + 1.0) / 2.0
-            
-            Gl.clearColor(0.1, 0.1, 0.1, 1.0)
+        while (!Glfw.shouldClose(win)) {
+            Gl.clearColor(0.2, 0.3, 0.3, 1.0)
             Gl.clear(Gl.COLOR_BUFFER_BIT)
 
-            Gl.useProgram(shaderProgram)
-            
-            Gl.uniform4f(colorLoc, r, g, b, 1.0)
-            
+            Gl.bindTexture(Gl.TEXTURE_2D, texID)
+            Gl.useProgram(prog)
             Gl.bindVertexArray(vao)
-            Gl.drawArrays(Gl.TRIANGLES, 0, 3)
+
+            // 4 sommets en mode FAN = Un carré
+            Gl.drawArrays(Gl.TRIANGLE_FAN, 0, 4) 
 
             Glfw.swapBuffers(win)
             Glfw.pollEvents()
