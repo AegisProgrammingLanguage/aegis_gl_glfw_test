@@ -1,0 +1,8 @@
+[package]
+name = "gl_aegis"
+version = "0.1.0"
+
+[targets]
+linux = "libgl_aegis.so"
+windows = "gl_aegis.dll"
+macos = "libgl_aegis.dylib"

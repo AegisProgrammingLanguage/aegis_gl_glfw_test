@@ -1,0 +1,8 @@
+[package]
+name = "glfw_aegis"
+version = "0.1.0"
+
+[targets]
+linux = "libglfw_aegis.so"
+windows = "glfw_aegis.dll"
+macos = "libglfw_aegis.dylib"

@@ -1,8 +1,8 @@
-import "packages/glfw_aegis/glfw.aeg"
-import "packages/gl_aegis/gl.aeg"
-import "stdlib/math.aeg" // Pour sin/cos
+import "packages/glfw/glfw.aeg"
+import "packages/gl/gl.aeg"
+import "stdlib/math.aeg"
 
-// --- SHADERS MODIFIÉS ---
+// --- SHADERS ---
 
 var vertexShaderSource = "
     #version 330 core
